@@ -291,6 +291,71 @@ The container runs as a non-root user (nextjs:nodejs) for security. All files ar
 
 If you see prompts about downloading pnpm, rebuild the image with the latest Dockerfile which includes `COREPACK_ENABLE_AUTO_PIN=0` to disable interactive prompts.
 
+## Deploying Behind Nginx with Custom URL Prefix
+
+If you need to serve the application under a custom URL path (e.g., `/kg-adm/` instead of root `/`), follow these steps:
+
+### 1. Configure Next.js Base Path
+
+**Before building the Docker image**, modify `keygen-ui/next.config.ts`:
+
+```typescript
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+  basePath: '/kg-adm',
+  assetPrefix: '/kg-adm'
+};
+
+export default nextConfig;
+```
+
+**Important**: The `basePath` and `assetPrefix` must match your Nginx location path to avoid redirect loops.
+
+### 2. Build Docker Image
+
+After modifying the Next.js config, build the image as usual:
+
+```bash
+./build.sh
+```
+
+### 3. Configure Nginx
+
+Add this location block to your Nginx configuration:
+
+```nginx
+location /kg-adm/ {
+    proxy_pass http://127.0.0.1:7073/kg-adm/;
+    include /etc/nginx/conf.d/proxy_pass.inc;
+}
+```
+
+**Notes**:
+- Change `7073` to your actual Docker container port mapping
+- The `/kg-adm/` path must match exactly in both Nginx and Next.js config
+- Ensure your `proxy_pass.inc` includes standard reverse proxy headers
+
+### 4. Run Container
+
+```bash
+docker run -d \
+  --name keygen-ui \
+  -p 7073:3000 \
+  --env-file .env \
+  keygen-ui:latest
+```
+
+### 5. Reload Nginx
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Access the application at `https://yourdomain.com/kg-adm/`
+
 ## Project Structure
 
 ```
