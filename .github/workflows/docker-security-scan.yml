@@ -1,0 +1,63 @@
+name: Docker Security Scan
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+  schedule:
+    # Run weekly on Mondays at 00:00 UTC
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image for scanning
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          load: true
+          tags: keygen-ui:scan
+          cache-from: type=gha
+          build-args: |
+            NEXT_PUBLIC_KEYGEN_API_URL=${{ secrets.NEXT_PUBLIC_KEYGEN_API_URL || 'https://api.keygen.sh/v1' }}
+            NEXT_PUBLIC_KEYGEN_ACCOUNT_ID=${{ secrets.NEXT_PUBLIC_KEYGEN_ACCOUNT_ID }}
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'keygen-ui:scan'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run Trivy vulnerability scanner (Table output)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'keygen-ui:scan'
+          format: 'table'
+          severity: 'CRITICAL,HIGH,MEDIUM'
