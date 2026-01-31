@@ -2,7 +2,7 @@
 # Multi-stage build for Next.js 15 application with pnpm
 
 # Stage 1: Dependencies
-FROM node:18-alpine AS deps
+FROM node:22-alpine AS deps
 RUN coreutils --version || apk add --no-cache libc6-compat coreutils
 
 # Install pnpm
@@ -17,7 +17,7 @@ COPY keygen-ui/package.json keygen-ui/pnpm-lock.yaml* keygen-ui/pnpm-workspace.y
 RUN pnpm install --frozen-lockfile
 
 # Stage 2: Builder
-FROM node:18-alpine AS builder
+FROM node:22-alpine AS builder
 
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
@@ -45,7 +45,7 @@ ENV NEXT_PUBLIC_KEYGEN_ACCOUNT_ID=${NEXT_PUBLIC_KEYGEN_ACCOUNT_ID}
 RUN pnpm build
 
 # Stage 3: Runner
-FROM node:18-alpine AS runner
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 
